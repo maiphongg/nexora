@@ -1,0 +1,111 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+
+enum Role { USER MODERATOR ADMIN }
+enum QuestType { DAILY WEEKLY SPECIAL EVENT }
+enum Rarity { COMMON RARE EPIC LEGENDARY }
+
+model User {
+  id               String   @id @default(cuid())
+  email            String   @unique
+  username         String   @unique
+  passwordHash     String
+  role             Role     @default(USER)
+  banned           Boolean  @default(false)
+  level            Int      @default(1)
+  xp               Int      @default(0)
+  totalXp          Int      @default(0)
+  coins            Int      @default(0)
+  streak           Int      @default(0)
+  lastDailyClaimAt DateTime?
+  quests           UserQuest[]
+  inventory        UserInventory[]
+  purchases        Purchase[]
+  notifications    Notification[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  @@index([totalXp])
+  @@index([coins])
+}
+
+model Quest {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  type        QuestType
+  target      Int
+  rewardXp    Int
+  rewardCoins Int
+  active      Boolean   @default(true)
+  expiresAt   DateTime?
+  users       UserQuest[]
+  createdAt   DateTime  @default(now())
+}
+
+model UserQuest {
+  id        String    @id @default(cuid())
+  userId    String
+  questId   String
+  progress  Int       @default(0)
+  claimedAt DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quest     Quest     @relation(fields: [questId], references: [id], onDelete: Cascade)
+  @@unique([userId, questId])
+}
+
+model ShopItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  category    String
+  rarity      Rarity   @default(COMMON)
+  price       Int
+  stock       Int?
+  active      Boolean  @default(true)
+  purchases   Purchase[]
+  owners      UserInventory[]
+  createdAt   DateTime @default(now())
+  @@index([category])
+}
+
+model Purchase {
+  id        String   @id @default(cuid())
+  userId    String
+  itemId    String
+  price     Int
+  user      User     @relation(fields: [userId], references: [id])
+  item      ShopItem @relation(fields: [itemId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model UserInventory {
+  id       String   @id @default(cuid())
+  userId   String
+  itemId   String
+  quantity Int      @default(1)
+  equipped Boolean  @default(false)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item     ShopItem @relation(fields: [itemId], references: [id])
+  @@unique([userId, itemId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  message   String
+  read      Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@index([userId, read])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String
+  targetType String
+  targetId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+}
